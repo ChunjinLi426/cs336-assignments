@@ -155,6 +155,7 @@ def train_bpe(
         vocab[new_tokenid] = vocab[u] + vocab[v]
         merges.append((vocab[u], vocab[v]))
 
+        # Update frequency table and index set
         for pos in index_set[max_pair]:
             pre_pretoken = pre_tokens[pos]
             new_pretoken = []
