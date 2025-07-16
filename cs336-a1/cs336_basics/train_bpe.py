@@ -1,6 +1,5 @@
 import os
 from multiprocessing import Process, Queue
-from typing import Iterable, Iterator
 from collections import defaultdict
 from typing import BinaryIO
 import regex as re 
@@ -53,20 +52,45 @@ def find_chunk_boundaries(
     return sorted(set(chunk_boundaries))
 
 
-def pretokenize(text: str, special_tokens: list[str] | None = None) -> list[list[int]]:
+def pretokenize(text: str, special_tokens: list[str] | None = None, drop_special_token = True) -> list[bytes]:
     """Pre-tokenize the text into a list of byte strings, splitting by special tokens."""
-    # Split the text into parts based on special tokens
+
+    # Note:
+    # When using regular expressions with multiple alternative delimiters (e.g., re.split("str1|str2")),
+    # always order the patterns from longest to shortest if there is any possibility of prefix overlap.
+    # This is because the regex engine matches alternatives from left to right and stops at the first match.
+    # If a shorter pattern appears before a longer one that shares its prefix, the longer one will never match.
+    #
+    # Example:
+    # re.split("STRONG|ST", text)   # correct
+    # re.split("ST|STRONG", text)   # incorrect: "STRONG" will be partially matched as "ST"
+
+    # ThereFore, we need to sort the special tokens by length in descending order.
     special_tokens = special_tokens or []
+    special_tokens = sorted(special_tokens, key = len, reverse = True)
+
+    # Split the text into parts based on special tokens
     escaped_tokens = [re.escape(token) for token in special_tokens]
     pattern = "|".join(escaped_tokens)
-    parts = re.split(pattern, text) 
+    if not drop_special_token: 
+        pattern = f"({pattern})"
+
+    # Note that if special_tokens is empty, we should not split the text at all
+    if len(special_tokens) == 0:
+        parts = [text]
+    else: 
+        parts = re.split(pattern, text) 
 
     pre_tokens = [] 
     PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
     for part in parts:
-        words = re.findall(PAT, part)
-        for word in words:
-            pre_tokens.append(list(word.encode("utf-8")))
+        if part in special_tokens: 
+            if not drop_special_token: 
+                pre_tokens.append(part.encode("utf-8"))
+        else:   
+            words = re.findall(PAT, part)           
+            for word in words:
+                pre_tokens.append(word.encode("utf-8"))
     return pre_tokens
 
 def train_bpe(
@@ -194,5 +218,3 @@ def main():
 
 if __name__ == "__main__": 
     main()
-
-
