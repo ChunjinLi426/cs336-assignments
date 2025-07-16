@@ -9,6 +9,7 @@ import numpy.typing as npt
 import torch
 from torch import Tensor
 
+from cs336_basics.transformer import Linear
 
 
 def run_linear(
@@ -29,8 +30,9 @@ def run_linear(
     Returns:
         Float[Tensor, "... d_out"]: The transformed output of your linear module.
     """
-
-    raise NotImplementedError
+    Linear_layer = Linear(d_in, d_out)
+    Linear_layer.weight.data.copy_(weights) 
+    return Linear_layer(in_features)
 
 
 def run_embedding(
