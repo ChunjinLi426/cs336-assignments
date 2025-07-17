@@ -46,4 +46,26 @@ class Embedding(nn.Module):
         return self.weight[token_ids]
 
 
+
+class RMSNorm(nn.Module): # Root Mean Square Layer Normalization
+    def __init__(self, d_model: int, eps: float = 1e-5, device: torch.device | None = None, dtype: torch.dtype | None = None): 
+        super().__init__()
+        self.factory_kwargs = {"device": device, "dtype": dtype} 
+        self.d_model = d_model
+        self.eps = eps 
+        self.device = device
+        self.dtype = dtype
+
+        g_init = torch.ones(d_model)
+        self.gain = nn.Parameter(g_init)
     
+    def RMS(self, x: torch.Tensor) -> torch.Tensor: 
+        ms = x.pow(2).mean(dim = -1, keepdim = True) 
+        rms = torch.sqrt(ms + self.eps)
+        return rms
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor: 
+        in_dtype = x.dtype
+        x = x.to(torch.float32)
+        result = (x / self.RMS(x)) * self.gain
+        return result.to(in_dtype)
