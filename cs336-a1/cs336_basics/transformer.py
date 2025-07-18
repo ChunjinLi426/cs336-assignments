@@ -3,6 +3,10 @@ import torch.nn as nn
 import numpy as np 
 from einops import einsum 
 
+def silu(x: torch.Tensor) -> torch.Tensor: 
+    return x * torch.sigmoid(x)
+
+
 class Linear(nn.Module): 
     def __init__(self, in_features: int, out_features: int, device: torch.device | None = None, dtype: torch.dtype | None = None): 
         super().__init__()
@@ -23,6 +27,7 @@ class Linear(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor: 
         return x @ self.weight.T
 
+
 class Embedding(nn.Module): 
     def __init__(self, vocab_siz: int, d_model: int, device: torch.device | None = None, dtype: torch.dtype | None = None): 
         super().__init__()
@@ -34,7 +39,7 @@ class Embedding(nn.Module):
         
         mean = 0
         std = 1
-        w_init = torch.empty(vocab_siz, d_model)
+        w_init = torch.empty(vocab_siz, d_model, **self.factory_kwargs)
         nn.init.trunc_normal_(w_init, mean, std, -3, 3)
         self.weight = nn.Parameter(w_init)
 
@@ -46,7 +51,6 @@ class Embedding(nn.Module):
         return self.weight[token_ids]
 
 
-
 class RMSNorm(nn.Module): # Root Mean Square Layer Normalization
     def __init__(self, d_model: int, eps: float = 1e-5, device: torch.device | None = None, dtype: torch.dtype | None = None): 
         super().__init__()
@@ -56,7 +60,7 @@ class RMSNorm(nn.Module): # Root Mean Square Layer Normalization
         self.device = device
         self.dtype = dtype
 
-        g_init = torch.ones(d_model)
+        g_init = torch.ones(d_model, **self.factory_kwargs)
         self.gain = nn.Parameter(g_init)
     
     def RMS(self, x: torch.Tensor) -> torch.Tensor: 
@@ -69,3 +73,22 @@ class RMSNorm(nn.Module): # Root Mean Square Layer Normalization
         x = x.to(torch.float32)
         result = (x / self.RMS(x)) * self.gain
         return result.to(in_dtype)
+
+
+class SwiGLUFFN(nn.Module): 
+    def __init__(self, d_model: int, d_ff: int, device: torch.device | None = None, dtype: torch.dtype | None = None): 
+        super().__init__()
+        self.factory_kwargs = {"device": device, "dtype": dtype} 
+        self.d_model = d_model
+        self.d_ff = d_ff 
+        self.device = device
+        self.dtype = dtype
+        self.w1 = Linear(d_model, d_ff, **self.factory_kwargs)
+        self.w2 = Linear(d_ff, d_model, **self.factory_kwargs)
+        self.w3 = Linear(d_model, d_ff, **self.factory_kwargs)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor: 
+        return self.w2(silu(self.w1(x)) * self.w3(x))
+    
+
+    

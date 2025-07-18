@@ -55,7 +55,7 @@ def run_embedding(
     embedding_layer.weight.data.copy_(weights)
     return embedding_layer(token_ids)
 
-
+from cs336_basics.transformer import SwiGLUFFN
 def run_swiglu(
     d_model: int,
     d_ff: int,
@@ -85,7 +85,11 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    swiglu = SwiGLUFFN(d_model, d_ff)
+    swiglu.w1.weight.data.copy_(w1_weight)
+    swiglu.w2.weight.data.copy_(w2_weight)
+    swiglu.w3.weight.data.copy_(w3_weight)
+    return swiglu(in_features)
 
 
 def run_scaled_dot_product_attention(
