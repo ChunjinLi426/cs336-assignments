@@ -91,4 +91,34 @@ class SwiGLUFFN(nn.Module):
         return self.w2(silu(self.w1(x)) * self.w3(x))
     
 
-    
+class RoPE(nn.Module): # Rotary Positional Embedding
+    def __init__(self, theta: float, d_k: int, max_seq_len: int, device: torch.device | None = None, dtype: torch.dtype | None = None):
+        super().__init__()
+        self.factory_kwargs = {"device": device, "dtype": dtype} 
+        self.theta = theta
+        self.d_k = d_k 
+        self.device = device
+        self.dtype = dtype
+        R_list = []
+        for i in range(max_seq_len): 
+            R_i = []
+            for k in range(d_k // 2): 
+                theta_ik = torch.tensor(i / (theta ** (2 * k / d_k)), **self.factory_kwargs)
+                cos_t = torch.cos(theta_ik)
+                sin_t = torch.sin(theta_ik)
+                R_i.append(torch.tensor([[cos_t, -sin_t], [sin_t, cos_t]], **self.factory_kwargs))
+
+            R_list.append(torch.block_diag(*R_i).to(**self.factory_kwargs))
+
+        self.R = torch.stack(R_list).to(**self.factory_kwargs)
+        self.register_buffer("rotation_matrix_table", self.R, persistent = False)
+        
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor: 
+        *prefix_dims, seq_len, d_k = x.shape
+        if token_positions == None: 
+            token_positions = torch.arange(seq_len, device = self.device)
+        results = einsum(
+            x, self.R[token_positions], 
+            "... d_in, ... d_out d_in -> ... d_out"
+        )
+        return results
