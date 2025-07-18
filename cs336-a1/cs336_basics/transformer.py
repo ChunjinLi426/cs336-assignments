@@ -14,9 +14,31 @@ def softmax(x: torch.Tensor, dim: int) -> torch.Tensor:
     return x_exp / torch.sum(x_exp, dim = dim, keepdim = True)
 
 
+def scaled_dot_product_attention(
+    Q: torch.Tensor, 
+    K: torch.Tensor, 
+    V: torch.Tensor, 
+    mask: torch.Tensor | None = None
+) -> torch.Tensor: 
+    d_k = Q.shape[-1]
+    attention_score = einsum(
+        Q, K, 
+        "... q_len d_k, ... k_len d_k -> ... q_len k_len"
+    ) / np.sqrt(d_k)
+    if mask != None: 
+        attention_score = attention_score.masked_fill(~mask, float('-inf'))
+    return softmax(attention_score, -1) @ V
+
 class Linear(nn.Module): 
-    def __init__(self, in_features: int, out_features: int, device: torch.device | None = None, dtype: torch.dtype | None = None): 
+    def __init__(
+        self, 
+        in_features: int, 
+        out_features: int, 
+        device: torch.device | None = None, 
+        dtype: torch.dtype | None = None
+    ): 
         super().__init__()
+
         self.in_features = in_features
         self.out_features = out_features
         self.device = device
@@ -36,8 +58,15 @@ class Linear(nn.Module):
 
 
 class Embedding(nn.Module): 
-    def __init__(self, vocab_siz: int, d_model: int, device: torch.device | None = None, dtype: torch.dtype | None = None): 
+    def __init__(
+        self, 
+        vocab_siz: int, 
+        d_model: int, 
+        device: torch.device | None = None, 
+        dtype: torch.dtype | None = None
+    ): 
         super().__init__()
+
         self.factory_kwargs = {"device": device, "dtype": dtype} 
         self.vocab_siz = vocab_siz 
         self.d_model = d_model
@@ -59,8 +88,14 @@ class Embedding(nn.Module):
 
 
 class RMSNorm(nn.Module): # Root Mean Square Layer Normalization
-    def __init__(self, d_model: int, eps: float = 1e-5, device: torch.device | None = None, dtype: torch.dtype | None = None): 
+    def __init__(self, 
+        d_model: int, 
+        eps: float = 1e-5,
+        device: torch.device | None = None, 
+        dtype: torch.dtype | None = None
+    ): 
         super().__init__()
+
         self.factory_kwargs = {"device": device, "dtype": dtype} 
         self.d_model = d_model
         self.eps = eps 
@@ -83,8 +118,15 @@ class RMSNorm(nn.Module): # Root Mean Square Layer Normalization
 
 
 class SwiGLUFFN(nn.Module): 
-    def __init__(self, d_model: int, d_ff: int, device: torch.device | None = None, dtype: torch.dtype | None = None): 
+    def __init__(
+        self, 
+        d_model: int, 
+        d_ff: int, 
+        device: torch.device | None = None, 
+        dtype: torch.dtype | None = None
+    ): 
         super().__init__()
+
         self.factory_kwargs = {"device": device, "dtype": dtype} 
         self.d_model = d_model
         self.d_ff = d_ff 
@@ -99,8 +141,16 @@ class SwiGLUFFN(nn.Module):
     
 
 class RoPE(nn.Module): # Rotary Positional Embedding
-    def __init__(self, theta: float, d_k: int, max_seq_len: int, device: torch.device | None = None, dtype: torch.dtype | None = None):
+    def __init__(
+        self, 
+        theta: float, 
+        d_k: int, 
+        max_seq_len: int, 
+        device: torch.device | None = None, 
+        dtype: torch.dtype | None = None
+    ):
         super().__init__()
+
         self.factory_kwargs = {"device": device, "dtype": dtype} 
         self.theta = theta
         self.d_k = d_k 

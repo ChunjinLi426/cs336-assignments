@@ -9,7 +9,15 @@ import numpy.typing as npt
 import torch
 from torch import Tensor
 
+from cs336_basics.train_bpe import train_bpe
+from cs336_basics.bpe_tokenizer import BPE_Tokenizer
 from cs336_basics.transformer import Linear
+from cs336_basics.transformer import Embedding
+from cs336_basics.transformer import SwiGLUFFN
+from cs336_basics.transformer import softmax
+from cs336_basics.transformer import scaled_dot_product_attention 
+
+
 def run_linear(
     d_in: int,
     d_out: int,
@@ -32,7 +40,7 @@ def run_linear(
     Linear_layer.weight.data.copy_(weights) 
     return Linear_layer(in_features)
 
-from cs336_basics.transformer import Embedding
+
 def run_embedding(
     vocab_size: int,
     d_model: int,
@@ -55,7 +63,7 @@ def run_embedding(
     embedding_layer.weight.data.copy_(weights)
     return embedding_layer(token_ids)
 
-from cs336_basics.transformer import SwiGLUFFN
+
 def run_swiglu(
     d_model: int,
     d_ff: int,
@@ -92,6 +100,7 @@ def run_swiglu(
     return swiglu(in_features)
 
 
+
 def run_scaled_dot_product_attention(
     Q: Float[Tensor, " ... queries d_k"],
     K: Float[Tensor, " ... keys d_k"],
@@ -110,7 +119,7 @@ def run_scaled_dot_product_attention(
     Returns:
         Float[Tensor, " ... queries d_v"]: Output of SDPA
     """
-    raise NotImplementedError
+    return scaled_dot_product_attention(Q, K, V, mask)
 
 
 def run_multihead_self_attention(
@@ -426,7 +435,7 @@ def run_get_batch(
     """
     raise NotImplementedError
 
-from cs336_basics.transformer import softmax
+
 def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ..."]:
     """
     Given a tensor of inputs, return the output of softmaxing the given `dim`
@@ -545,7 +554,7 @@ def run_load_checkpoint(
     """
     raise NotImplementedError
 
-from cs336_basics.bpe_tokenizer import BPE_Tokenizer
+
 def get_tokenizer(
     vocab: dict[int, bytes],
     merges: list[tuple[bytes, bytes]],
@@ -570,7 +579,7 @@ def get_tokenizer(
     return tokenizer
 
 
-from cs336_basics.train_bpe import train_bpe
+
 def run_train_bpe(
     input_path: str | os.PathLike,
     vocab_size: int,
