@@ -3,8 +3,15 @@ import torch.nn as nn
 import numpy as np 
 from einops import einsum 
 
+
 def silu(x: torch.Tensor) -> torch.Tensor: 
     return x * torch.sigmoid(x)
+
+
+def softmax(x: torch.Tensor, dim: int) -> torch.Tensor: 
+    x_stable = x - torch.max(x, dim = dim, keepdim = True).values
+    x_exp = torch.exp(x_stable)
+    return x_exp / torch.sum(x_exp, dim = dim, keepdim = True)
 
 
 class Linear(nn.Module): 
