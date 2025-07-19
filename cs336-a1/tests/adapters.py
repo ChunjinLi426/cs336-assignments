@@ -16,6 +16,7 @@ from cs336_basics.transformer import Embedding
 from cs336_basics.transformer import SwiGLUFFN
 from cs336_basics.transformer import softmax
 from cs336_basics.transformer import scaled_dot_product_attention 
+from cs336_basics.transformer import Multi_Head_Self_Attention 
 
 
 def run_linear(
@@ -153,7 +154,12 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    mhsa = Multi_Head_Self_Attention(d_model, num_heads)
+    mhsa.w_Q.weight.data = q_proj_weight
+    mhsa.w_K.weight.data = k_proj_weight
+    mhsa.w_V.weight.data = v_proj_weight
+    mhsa.w_O.weight.data = o_proj_weight
+    return mhsa(in_features)
 
 
 def run_multihead_self_attention_with_rope(
@@ -193,7 +199,12 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    mhsa = Multi_Head_Self_Attention(d_model, num_heads, True, theta, max_seq_len)
+    mhsa.w_Q.weight.data = q_proj_weight
+    mhsa.w_K.weight.data = k_proj_weight
+    mhsa.w_V.weight.data = v_proj_weight
+    mhsa.w_O.weight.data = o_proj_weight
+    return mhsa(in_features, token_positions)
 
 from cs336_basics.transformer import RoPE
 def run_rope(
