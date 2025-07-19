@@ -60,7 +60,7 @@ class Linear(nn.Module):
 class Embedding(nn.Module): 
     def __init__(
         self, 
-        vocab_siz: int, 
+        vocab_size: int, 
         d_model: int, 
         device: torch.device | None = None, 
         dtype: torch.dtype | None = None
@@ -68,14 +68,14 @@ class Embedding(nn.Module):
         super().__init__()
 
         self.factory_kwargs = {"device": device, "dtype": dtype} 
-        self.vocab_siz = vocab_siz 
+        self.vocab_size = vocab_size
         self.d_model = d_model
         self.device = device
         self.dtype = dtype 
         
         mean = 0
         std = 1
-        w_init = torch.empty(vocab_siz, d_model, **self.factory_kwargs)
+        w_init = torch.empty(vocab_size, d_model, **self.factory_kwargs)
         nn.init.trunc_normal_(w_init, mean, std, -3, 3)
         self.weight = nn.Parameter(w_init)
 
@@ -271,4 +271,49 @@ class TransformerBlock(nn.Module): # pre-norm Transformer block
     def forward(self, x: torch.Tensor) -> torch.Tensor: 
         x = x + self.attn(self.ln1(x))
         x = x + self.ffn(self.ln2(x))
+        return x
+
+
+class TransformerLM(nn.Module): 
+    def __init__(
+        self, 
+        num_layers: int, 
+        vocab_size: int, 
+        context_length: int, 
+        d_model: int, 
+        num_heads: int, 
+        d_ff: int, 
+        rope_theta: float, 
+        device: torch.device | None = None, 
+        dtype: torch.dtype | None = None
+    ): 
+        super().__init__()
+
+        self.factory_kwargs = {"device": device, "dtype": dtype} 
+        self.vocab_size = vocab_size
+        self.context_length = context_length
+        self.num_layers = num_layers
+
+        self.token_embeddings = Embedding(vocab_size, d_model, **self.factory_kwargs)
+        self.layers = nn.ModuleList(
+            TransformerBlock(
+                d_model = d_model, 
+                num_heads = num_heads, 
+                d_ff = d_ff, 
+                use_rope = True, 
+                theta = rope_theta,
+                max_seq_len = context_length, 
+                **self.factory_kwargs
+            )
+            for _ in range(num_layers)
+        )
+        self.ln_final = RMSNorm(d_model, **self.factory_kwargs)
+        self.lm_head = Linear(d_model, vocab_size, **self.factory_kwargs)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor: 
+        x = self.token_embeddings(x)
+        for layer in self.layers: 
+            x = layer(x)
+        x = self.ln_final(x)
+        x = self.lm_head(x)
         return x
