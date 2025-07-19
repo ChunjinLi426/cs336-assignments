@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import numpy as np 
-from einops import einsum 
+from einops import einsum, rearrange 
 
 
 def silu(x: torch.Tensor) -> torch.Tensor: 
@@ -179,3 +179,60 @@ class RoPE(nn.Module): # Rotary Positional Embedding
             "... d_in, ... d_out d_in -> ... d_out"
         )
         return results
+
+
+class Multi_Head_Self_Attention(nn.Module): 
+    def __init__(
+        self, 
+        d_model: int, 
+        num_heads: int, 
+        use_rope: bool = False, 
+        theta: float | None = None, 
+        max_seq_len: int | None = None, 
+        device: torch.device | None = None, 
+        dtype: torch.dtype | None = None
+    ): 
+        super().__init__()
+
+        self.factory_kwargs = {"device": device, "dtype": dtype} 
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.d_k = d_model // num_heads
+        self.d_v = d_model // num_heads
+
+        self.w_Q = Linear(d_model, num_heads * self.d_k, **self.factory_kwargs)
+        self.w_K = Linear(d_model, num_heads * self.d_k, **self.factory_kwargs)
+        self.w_V = Linear(d_model, num_heads * self.d_v, **self.factory_kwargs)
+        self.w_O = Linear(num_heads * self.d_v, d_model, **self.factory_kwargs)
+
+        self.use_rope = use_rope
+        if use_rope: 
+            self.rope = RoPE(theta, self.d_k, max_seq_len)
+        else: 
+            self.rope = None
+
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor: 
+        seq_len = x.shape[-2]
+        q = self.w_Q(x)
+        k = self.w_K(x)
+        v = self.w_V(x)
+        q = rearrange(
+            q, "... seq_len (h d_k) -> ... h seq_len d_k", h = self.num_heads
+        )
+        k = rearrange(
+            k, "... seq_len (h d_k) -> ... h seq_len d_k", h = self.num_heads
+        )
+        v = rearrange(
+            v, "... seq_len (h d_v) -> ... h seq_len d_v", h = self.num_heads
+        )
+        if self.use_rope: 
+            if token_positions == None: 
+                token_positions = torch.arange(seq_len, device = self.device)
+            q = self.rope(q, token_positions)
+            k = self.rope(k, token_positions)
+        mask = ~torch.triu(torch.ones(seq_len, seq_len, **self.factory_kwargs), diagonal = 1).bool()
+        attention_score = scaled_dot_product_attention(q, k, v, mask)
+        attention_score = rearrange(
+            attention_score, "... h seg_len d_k -> ... seg_len (h d_k)"
+        ) 
+        return self.w_O(attention_score)
