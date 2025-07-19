@@ -13,11 +13,13 @@ from cs336_basics.train_bpe import train_bpe
 from cs336_basics.bpe_tokenizer import BPE_Tokenizer
 from cs336_basics.transformer import Linear
 from cs336_basics.transformer import Embedding
+from cs336_basics.transformer import RMSNorm
 from cs336_basics.transformer import SwiGLUFFN
 from cs336_basics.transformer import softmax
 from cs336_basics.transformer import scaled_dot_product_attention 
-from cs336_basics.transformer import Multi_Head_Self_Attention 
-
+from cs336_basics.transformer import RoPE
+from cs336_basics.transformer import MultiheadSelfAttention 
+from cs336_basics.transformer import TransformerBlock 
 
 def run_linear(
     d_in: int,
@@ -154,11 +156,11 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    mhsa = Multi_Head_Self_Attention(d_model, num_heads)
-    mhsa.w_Q.weight.data = q_proj_weight
-    mhsa.w_K.weight.data = k_proj_weight
-    mhsa.w_V.weight.data = v_proj_weight
-    mhsa.w_O.weight.data = o_proj_weight
+    mhsa = MultiheadSelfAttention(d_model, num_heads)
+    mhsa.q_proj.weight.data = q_proj_weight
+    mhsa.k_proj.weight.data = k_proj_weight
+    mhsa.v_proj.weight.data = v_proj_weight
+    mhsa.o_proj.weight.data = o_proj_weight
     return mhsa(in_features)
 
 
@@ -199,14 +201,14 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_out"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    mhsa = Multi_Head_Self_Attention(d_model, num_heads, True, theta, max_seq_len)
-    mhsa.w_Q.weight.data = q_proj_weight
-    mhsa.w_K.weight.data = k_proj_weight
-    mhsa.w_V.weight.data = v_proj_weight
-    mhsa.w_O.weight.data = o_proj_weight
+    mhsa = MultiheadSelfAttention(d_model, num_heads, True, theta, max_seq_len)
+    mhsa.q_proj.weight.data = q_proj_weight
+    mhsa.k_proj.weight.data = k_proj_weight
+    mhsa.v_proj.weight.data = v_proj_weight
+    mhsa.o_proj.weight.data = o_proj_weight
     return mhsa(in_features, token_positions)
 
-from cs336_basics.transformer import RoPE
+
 def run_rope(
     d_k: int,
     theta: float,
@@ -300,7 +302,17 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    model = TransformerBlock(d_model, num_heads, d_ff, True, theta, max_seq_len)
+    model.attn.q_proj.weight.data = weights['attn.q_proj.weight']
+    model.attn.k_proj.weight.data = weights['attn.k_proj.weight']
+    model.attn.v_proj.weight.data = weights['attn.v_proj.weight']
+    model.attn.o_proj.weight.data = weights['attn.output_proj.weight']
+    model.ln1.gain.data = weights['ln1.weight']
+    model.ln2.gain.data = weights['ln2.weight']
+    model.ffn.w1.weight.data = weights['ffn.w1.weight']
+    model.ffn.w2.weight.data = weights['ffn.w2.weight']
+    model.ffn.w3.weight.data = weights['ffn.w3.weight']
+    return model(in_features)
 
 
 def run_transformer_lm(
@@ -384,7 +396,7 @@ def run_transformer_lm(
     """
     raise NotImplementedError
 
-from cs336_basics.transformer import RMSNorm
+
 def run_rmsnorm(
     d_model: int,
     eps: float,

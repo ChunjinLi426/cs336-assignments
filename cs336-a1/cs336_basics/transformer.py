@@ -132,6 +132,7 @@ class SwiGLUFFN(nn.Module):
         self.d_ff = d_ff 
         self.device = device
         self.dtype = dtype
+
         self.w1 = Linear(d_model, d_ff, **self.factory_kwargs)
         self.w2 = Linear(d_ff, d_model, **self.factory_kwargs)
         self.w3 = Linear(d_model, d_ff, **self.factory_kwargs)
@@ -156,6 +157,7 @@ class RoPE(nn.Module): # Rotary Positional Embedding
         self.d_k = d_k 
         self.device = device
         self.dtype = dtype
+
         R_list = []
         for i in range(max_seq_len): 
             R_i = []
@@ -181,7 +183,7 @@ class RoPE(nn.Module): # Rotary Positional Embedding
         return results
 
 
-class Multi_Head_Self_Attention(nn.Module): 
+class MultiheadSelfAttention(nn.Module): 
     def __init__(
         self, 
         d_model: int, 
@@ -199,11 +201,13 @@ class Multi_Head_Self_Attention(nn.Module):
         self.num_heads = num_heads
         self.d_k = d_model // num_heads
         self.d_v = d_model // num_heads
+        self.device = device
+        self.dtype = dtype
 
-        self.w_Q = Linear(d_model, num_heads * self.d_k, **self.factory_kwargs)
-        self.w_K = Linear(d_model, num_heads * self.d_k, **self.factory_kwargs)
-        self.w_V = Linear(d_model, num_heads * self.d_v, **self.factory_kwargs)
-        self.w_O = Linear(num_heads * self.d_v, d_model, **self.factory_kwargs)
+        self.q_proj = Linear(d_model, num_heads * self.d_k, **self.factory_kwargs)
+        self.k_proj = Linear(d_model, num_heads * self.d_k, **self.factory_kwargs)
+        self.v_proj = Linear(d_model, num_heads * self.d_v, **self.factory_kwargs)
+        self.o_proj = Linear(num_heads * self.d_v, d_model, **self.factory_kwargs)
 
         self.use_rope = use_rope
         if use_rope: 
@@ -213,9 +217,9 @@ class Multi_Head_Self_Attention(nn.Module):
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor: 
         seq_len = x.shape[-2]
-        q = self.w_Q(x)
-        k = self.w_K(x)
-        v = self.w_V(x)
+        q = self.q_proj(x)
+        k = self.k_proj(x)
+        v = self.v_proj(x)
         q = rearrange(
             q, "... seq_len (h d_k) -> ... h seq_len d_k", h = self.num_heads
         )
@@ -235,4 +239,36 @@ class Multi_Head_Self_Attention(nn.Module):
         attention_score = rearrange(
             attention_score, "... h seg_len d_k -> ... seg_len (h d_k)"
         ) 
-        return self.w_O(attention_score)
+        return self.o_proj(attention_score)
+
+
+class TransformerBlock(nn.Module): # pre-norm Transformer block
+    def __init__(
+        self, 
+        d_model: int, 
+        num_heads: int, 
+        d_ff: int, 
+        use_rope: bool = False, 
+        theta: float | None = None, 
+        max_seq_len: int | None = None, 
+        device: torch.device | None = None, 
+        dtype: torch.dtype | None = None
+    ): 
+        super().__init__()
+
+        self.factory_kwargs = {"device": device, "dtype": dtype} 
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.d_ff = d_ff
+        self.device = device
+        self.dtype = dtype
+
+        self.attn = MultiheadSelfAttention(d_model, num_heads, use_rope, theta, max_seq_len, **self.factory_kwargs)
+        self.ffn = SwiGLUFFN(d_model, d_ff, **self.factory_kwargs)
+        self.ln1 = RMSNorm(d_model, **self.factory_kwargs)
+        self.ln2 = RMSNorm(d_model, **self.factory_kwargs)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor: 
+        x = x + self.attn(self.ln1(x))
+        x = x + self.ffn(self.ln2(x))
+        return x
