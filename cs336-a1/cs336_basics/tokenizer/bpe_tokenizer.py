@@ -1,4 +1,4 @@
-from .train_bpe import pretokenize  
+from cs336_basics.tokenizer.train_bpe import pretokenize  
 from typing import Iterable, Iterator
 
 class BPE_Tokenizer: 
