@@ -13,6 +13,21 @@ def cross_entropy(o: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
     o_stable = o - torch.max(o, dim = -1, keepdim = True).values
     loss = -o_stable[torch.arange(o.shape[0]), targets] + torch.log(torch.sum(torch.exp(o_stable), dim = -1, keepdim = True))
     return loss.mean()
+    
+
+def learning_rate_schedule(
+    t: int, 
+    alpha_max: float = 0.01, 
+    alpha_min: float = 1e-4,
+    warmup_iters: int = 4000, 
+    cosine_cycle_iters: int = 40000
+) -> float: 
+    if t < warmup_iters: 
+        return alpha_max * t / warmup_iters
+    elif warmup_iters <= t <= cosine_cycle_iters:
+        return alpha_min + 0.5 * (alpha_max - alpha_min) * (1 + math.cos(math.pi * (t - warmup_iters) / (cosine_cycle_iters - warmup_iters)))
+    else: 
+        return alpha_min
 
 
 class SGD(torch.optim.Optimizer): # Stochastic Gradient Descent Optimizer
@@ -95,3 +110,5 @@ class AdamW(torch.optim.Optimizer):
                 state["v"] = v
         
         return loss
+
+
