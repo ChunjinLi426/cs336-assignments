@@ -5,6 +5,7 @@ import math
 from typing import Optional
 from einops import rearrange
 from cs336_basics.transformer.model import softmax
+from collections.abc import Iterable
 
 
 def cross_entropy(o: torch.Tensor, targets: torch.Tensor) -> torch.Tensor: 
@@ -28,6 +29,23 @@ def learning_rate_schedule(
         return alpha_min + 0.5 * (alpha_max - alpha_min) * (1 + math.cos(math.pi * (t - warmup_iters) / (cosine_cycle_iters - warmup_iters)))
     else: 
         return alpha_min
+
+
+def clip_grad(
+    parameters: Iterable[torch.nn.Parameter], 
+    max_l2_norm: float = 1.0 
+): 
+    total_norm = 0.0
+    for p in parameters: 
+        if p.grad is not None: 
+            param_norm = p.grad.data.norm(2)
+            total_norm += param_norm.item() ** 2
+    total_norm = total_norm ** 0.5
+    clip_coef = max_l2_norm / (total_norm + 1e-6)
+    if clip_coef < 1.0:
+        for p in parameters: 
+            if p.grad is not None: 
+                p.grad.data.mul_(clip_coef)
 
 
 class SGD(torch.optim.Optimizer): # Stochastic Gradient Descent Optimizer
