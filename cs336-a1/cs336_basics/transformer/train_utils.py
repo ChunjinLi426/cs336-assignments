@@ -6,6 +6,8 @@ from typing import Optional
 from einops import rearrange
 from cs336_basics.transformer.model import softmax
 from collections.abc import Iterable
+import numpy as np
+from numpy.typing import NDArray
 
 
 def cross_entropy(o: torch.Tensor, targets: torch.Tensor) -> torch.Tensor: 
@@ -46,6 +48,19 @@ def clip_grad(
         for p in parameters: 
             if p.grad is not None: 
                 p.grad.data.mul_(clip_coef)
+
+
+def get_batch(
+    data: NDArray, 
+    batch_size: int, 
+    context_length: int, 
+    device: str
+) -> tuple[torch.Tensor, torch.Tensor]:
+    data_len = len(data)
+    starts = np.random.randint(0, data_len - context_length, size=batch_size)
+    inputs = np.array([data[start : start + context_length] for start in starts])
+    targets = np.array([data[start + 1 : start + context_length + 1] for start in starts])
+    return (torch.tensor(inputs, device=device), torch.tensor(targets, device=device))
 
 
 class SGD(torch.optim.Optimizer): # Stochastic Gradient Descent Optimizer
